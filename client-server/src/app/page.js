@@ -1,6 +1,5 @@
 import AboutUsSection from "@/components/home/AboutUsSection";
 import ActivitiesSection from "@/components/home/ActivitiesSection";
-import AdmissionSection from "@/components/home/AdmissionSection";
 import AimsAndValues from "@/components/home/AimsAndValues";
 import ContactAndLocation from "@/components/home/ContactAndLocation";
 import DonorsAndSupporters from "@/components/home/DonorsAndSupporters";
@@ -18,7 +17,6 @@ export default function Home() {
       <AboutUsSection/>
       <FacilitiesSection/>
       <ActivitiesSection/>
-      <AdmissionSection/>
       <GallerySection/>
       <NewsAndEvents/>
       <SuccessStories/>

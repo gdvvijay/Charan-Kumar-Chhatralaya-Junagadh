@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "next-themes";
-import { Menu, X, Phone, MapPin, Moon, Sun, ChevronRight } from "lucide-react";
+import { Menu, X, Phone, MapPin, Moon, Sun, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -10,20 +10,35 @@ import { usePathname, useRouter } from "next/navigation";
 // IMPORTANT CONFIGURATION EXPLANATION:
 // 1. "hasSeparatePage: true" -> Clicking the link directly navigates to 'href' (the new route). But while scrolling the Home Page, it will STILL show active when it reaches 'sectionId'.
 // 2. "hasSeparatePage: false" -> Clicking the link won't navigate to a new page, instead it strictly Smooth-Scrolls to that specific 'sectionId' block.
+// 3. "isDropdown: true" -> Renders a child object block.
 const navLinks = [
   { name: "મુખપૃષ્ઠ", href: "/", sectionId: null, hasSeparatePage: true },
   
-  // No separate page: Only smoothly scrolls on home page section
   { name: "ઇતિહાસ", href: "/#history", sectionId: "history", hasSeparatePage: false },
-  { name: "સુવિધાઓ", href: "/#facilities", sectionId: "facilities", hasSeparatePage: false },
-  { name: "પ્રવૃત્તિઓ", href: "/#activities", sectionId: "activities", hasSeparatePage: false },
+
+  {
+    name: "સાહિત્ય",
+    isDropdown: true,
+    items: [
+      { name: "સોનલ મા પ્રાર્થના", href: "/literature/sonal-maa-prathana", sectionId: null, hasSeparatePage: true },
+      { name: "૫૧ આદેશ", href: "/literature/51-adesh", sectionId: null, hasSeparatePage: true },
+      { name: "અન્ય પ્રાર્થના", href: "/literature/anya-prarthana", sectionId: null, hasSeparatePage: true },
+    ],
+  },
   
-  // Has Separate page: Navigate away directly ON CLICK, but highlight accurately ON SCROLLing home page
-  { name: "પ્રવેશ", href: "/admission", sectionId: "admission", hasSeparatePage: true },
+  { name: "પ્રવેશ", href: "/admission", sectionId: null, hasSeparatePage: true },
   { name: "વિદ્યાર્થીઓ", href: "/students", sectionId: "students", hasSeparatePage: true },
   { name: "ફી કલેક્શન", href: "/fees", sectionId: "fees", hasSeparatePage: true }, 
-];
 
+   {
+    name: "અન્ય",
+    isDropdown: true,
+    items: [
+      { name: "સુવિધાઓ", href: "/#facilities", sectionId: "facilities", hasSeparatePage: false },
+      { name: "પ્રવૃત્તિઓ", href: "/#activities", sectionId: "activities", hasSeparatePage: false },
+    ],
+  },
+];
 
 const Header = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -31,9 +46,13 @@ const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
+  const [mobileDropdownOpen, setMobileDropdownOpen] = useState("");
 
   const pathname = usePathname();
   const router = useRouter();
+
+  // Flattens out navigation list natively allowing original scrolling interception checks to work accurately internally! 
+  const flatNavLinks = navLinks.flatMap((l) => (l.isDropdown ? l.items : l));
 
   // ── Scroll Detection for Auto Highlight on Home Page ──────────────────────
   useEffect(() => {
@@ -42,13 +61,11 @@ const Header = () => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
 
-      // Scroll logic check applies ONLY when user is exactly on the Home page ('/')
       if (pathname !== "/") return;
 
-      const sectionLinks = navLinks.filter((l) => l.sectionId);
+      const sectionLinks = flatNavLinks.filter((l) => l.sectionId);
       let currentSection = null;
 
-      // Checking which specific home page section comes closely under upper viewport 
       for (let i = sectionLinks.length - 1; i >= 0; i--) {
         const link = sectionLinks[i];
         const el = document.getElementById(link.sectionId);
@@ -64,9 +81,9 @@ const Header = () => {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // initial state execute
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [pathname]);
+  }, [pathname, flatNavLinks]);
 
   // Reset internal home section variable while exploring totally distinct subpages 
   useEffect(() => {
@@ -78,32 +95,27 @@ const Header = () => {
   // ── Handling What exactly to do upon Clicks ────────────────────────────────
   const handleNavClick = useCallback(
     (e, link) => {
-      // 1. Close off-canvas drawer of Mobile anyways 
       setIsMobileMenuOpen(false);
+      setMobileDropdownOpen(""); // close open internal accordions locally to be ready
 
-      // 2. Logic condition: IF THIS TAB HAS SEPARATE FULL DEDICATED PAGE
       if (link.hasSeparatePage) {
-        // Stop intercepting entirely. Returning lets `<Link>` Native Navigation to 'href' take complete charge. 
         return; 
       }
 
-      // 3. IF NO FULL PAGE ATTACHED (Strict Scroll Behaviour Only requested) 
       e.preventDefault();
 
       const scrollToSection = () => {
         const el = document.getElementById(link.sectionId);
         if (el) {
-          const headerHeightOffset = 100; // Account around main navbar heights!
+          const headerHeightOffset = 100;
           const topPosition = el.getBoundingClientRect().top + window.scrollY - headerHeightOffset;
           window.scrollTo({ top: topPosition, behavior: "smooth" });
         }
       };
 
       if (pathname === "/") {
-        // Physically active home page? Straight to target layout offsets  
         scrollToSection();
       } else {
-        // Inside another screen altogether -> Return towards primary endpoint & later push  
         router.push("/");
         setTimeout(() => {
           scrollToSection();
@@ -113,29 +125,24 @@ const Header = () => {
     [pathname, router]
   );
 
-  // ── Exact Rules of Navigation Bar Indication (Colourizing tab) ───────────────
-  const isLinkActive = (link) => {
-    // Overriding: Specifically evaluating Separate nested domains explicitly matching 
-    if (pathname === link.href && link.href !== "/") {
-        return true; 
-    }
-    // Handle subroute selections safely example ("/fees/history") keeping primary main nav highlighted
-    if (link.href !== "/" && pathname.startsWith(link.href + "/")) {
-        return true;
-    }
+  // Checks logic for evaluating specific matching links independently cleanly! 
+  const checkLinkIsActive = (link) => {
+    if (pathname === link.href && link.href !== "/") return true; 
+    if (link.href !== "/" && pathname.startsWith(link.href + "/")) return true;
 
-    // Checking behaviours solely around viewing inside Local Dashboard (Homepage Domains "/") 
     if (pathname === "/") {
-      if (link.href === "/") {
-        return !activeSection; 
-      }
-      
-      if (link.sectionId && activeSection === link.sectionId) {
-        return true; // Turns Fees Blue when dynamically hitting <div id='fees'> layout container! 
-      }
+      if (link.href === "/") return !activeSection; 
+      if (link.sectionId && activeSection === link.sectionId) return true; 
     }
-    
     return false;
+  };
+
+  // Maps whether dropdowns or direct ones possess focus
+  const isLinkActive = (link) => {
+    if (link.isDropdown) {
+        return link.items.some((subLink) => checkLinkIsActive(subLink));
+    }
+    return checkLinkIsActive(link);
   };
 
   return (
@@ -189,9 +196,9 @@ const Header = () => {
 
             {/* Logo */}
             <div className="flex items-center space-x-1 sm:space-x-3 cursor-pointer group flex-shrink-0">
-              <div className="bg-transparent rounded-full transition-transform duration-300 group-hover:scale-105 flex-shrink-0">
-                 
-              <svg
+              <div className="bg-transparent rounded-full transition-transform duration-300 group-hover:scale-105 flex-shrink-0 flex items-center justify-center w-15 h-15 sm:w-18 sm:h-18 lg:w-23 lg:h-23">
+                
+                 <svg
                   className="w-15 h-15 sm:w-18 sm:h-18 lg:w-23 lg:h-23 drop-shadow-sm"
                   viewBox="0 0 680 680"
                   fill="none"
@@ -618,6 +625,56 @@ const Header = () => {
             <nav className="hidden lg:flex items-center space-x-0.5 xl:space-x-1 ml-4">
               {navLinks.map((link) => {
                 const active = isLinkActive(link);
+
+                // For links possessing a dropdown: Layout
+                if (link.isDropdown) {
+                  return (
+                    <div key={link.name} className="relative group px-1.5 py-2.5">
+                      <button
+                        className={`flex items-center text-sm font-medium transition-all duration-200 cursor-default whitespace-nowrap 
+                        ${
+                          active
+                            ? "text-indigo-600 dark:text-indigo-400"
+                            : "text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                        }`}
+                      >
+                        {link.name}
+                        <ChevronDown className="ml-1 w-4 h-4 transition-transform group-hover:-rotate-180" />
+                      </button>
+
+                      {/* Animated sub panel overlay */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 pt-1 w-52 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-50">
+                         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg flex flex-col py-2">
+                           {link.items.map((subItem) => {
+                             const subActive = checkLinkIsActive(subItem);
+                             return (
+                               <Link
+                                 key={subItem.name}
+                                 href={subItem.href}
+                                 onClick={(e) => handleNavClick(e, subItem)}
+                                 className={`px-4 py-2.5 text-[14px] transition-colors block text-left ${
+                                   subActive 
+                                     ? "bg-indigo-50/70 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold" 
+                                     : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                 }`}
+                               >
+                                 {subItem.name}
+                               </Link>
+                             )
+                           })}
+                         </div>
+                      </div>
+
+                      {/* Dropdown root underline */}
+                      <span
+                        className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 rounded-full transition-all duration-300 pointer-events-none 
+                        ${active ? "w-[60%] opacity-100 bg-indigo-500 dark:bg-indigo-400" : "w-0 opacity-0"}`}
+                      />
+                    </div>
+                  );
+                }
+
+                // Layout Native traditional singular top tabs mappings!
                 return (
                   <Link
                     key={link.name}
@@ -628,18 +685,15 @@ const Header = () => {
                       transition-all duration-200 whitespace-nowrap group
                       ${
                         active
-                          ? "text-indigo-600 dark:text-indigo-400 "
+                          ? "text-indigo-600 dark:text-indigo-400"
                           : "text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800"
                       }
                     `}
                   >
                     {link.name}
-                    {/* Underline indicator */}
                     <span
-                      className={`
-                        absolute bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 
-                        rounded-full transition-all duration-300
-                        ${active ? "w-4/5 opacity-100 bg-indigo-500 dark:bg-indigo-400" : "w-0 opacity-0 group-hover:w-1/2 group-hover:opacity-50"}
+                      className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 rounded-full transition-all duration-300 
+                      ${active ? "w-4/5 opacity-100 bg-indigo-500 dark:bg-indigo-400" : "w-0 opacity-0 group-hover:w-1/2 group-hover:opacity-50"}
                       `}
                     />
                   </Link>
@@ -693,17 +747,63 @@ const Header = () => {
           </div>
         </div>
 
-        {/* ── Mobile Navigation Dropdown ──────────────────────────────────────── */}
+        {/* ── Mobile Navigation Drawer Menu Canvas─────────────────────────────── */}
         <div
           className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
             isMobileMenuOpen
-              ? "max-h-[500px] border-t border-slate-100 dark:border-slate-800"
+              ? "max-h-[800px] border-t border-slate-100 dark:border-slate-800"
               : "max-h-0"
           }`}
         >
-          <div className="px-4 pt-2 pb-6 space-y-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xl">
+          <div className="px-4 pt-3 pb-6 space-y-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xl">
             {navLinks.map((link) => {
               const active = isLinkActive(link);
+
+              if (link.isDropdown) {
+                 const accordionOpen = mobileDropdownOpen === link.name;
+                 return (
+                   <div key={link.name} className="flex flex-col">
+                     <button
+                       onClick={() => setMobileDropdownOpen(accordionOpen ? "" : link.name)}
+                       className={`flex justify-between items-center w-full px-4 py-3 text-base font-medium rounded-xl transition-colors ${
+                          active 
+                            ? "bg-indigo-50/50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" 
+                            : "text-slate-700 dark:text-slate-300 hover:bg-indigo-50/50 dark:hover:bg-slate-800"
+                       }`}
+                     >
+                       <div className="flex items-center">
+                         {active && <span className="w-1 h-5 bg-indigo-500 rounded-full mr-3 shrink-0" />}
+                         {link.name}
+                       </div>
+                       <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${accordionOpen ? "-rotate-180 text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`} />
+                     </button>
+                     {/* Nested children drawer */}
+                     <div className={`flex flex-col transition-all overflow-hidden duration-300 ${accordionOpen ? "max-h-[300px] opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
+                        <div className="pl-8 pr-2 py-2 flex flex-col space-y-1 border-l-[1.5px] border-indigo-100 dark:border-slate-800 ml-5 my-1">
+                          {link.items.map((subItem) => {
+                             const subActive = checkLinkIsActive(subItem);
+                             return (
+                               <Link
+                                 key={subItem.name}
+                                 href={subItem.href}
+                                 onClick={(e) => handleNavClick(e, subItem)}
+                                 className={`block w-full py-2.5 px-3 text-[15px] font-medium rounded-lg transition-colors ${
+                                    subActive 
+                                      ? "text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-slate-800/60 shadow-sm" 
+                                      : "text-slate-600 dark:text-slate-400 hover:text-indigo-600"
+                                 }`}
+                               >
+                                 {subItem.name}
+                               </Link>
+                             )
+                          })}
+                        </div>
+                     </div>
+                   </div>
+                 );
+              }
+
+              // Base native tab fallback loops mappings 
               return (
                 <Link
                   key={link.name}
@@ -718,15 +818,13 @@ const Header = () => {
                     }
                   `}
                 >
-                  {/* Left accent bar for active state on mobile */}
-                  {active && (
-                    <span className="w-1 h-5 bg-indigo-500 rounded-full mr-3 shrink-0" />
-                  )}
+                  {active && <span className="w-1 h-5 bg-indigo-500 rounded-full mr-3 shrink-0" />}
                   {link.name}
                 </Link>
               );
             })}
-            <div className="pt-4 pb-2 px-2">
+
+            <div className="pt-4 pb-2 px-2 mt-2">
               <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl text-base font-semibold transition-colors flex justify-center items-center space-x-2 shadow-sm">
                 <span>પ્રવેશ પૂછપરછ</span>
               </button>

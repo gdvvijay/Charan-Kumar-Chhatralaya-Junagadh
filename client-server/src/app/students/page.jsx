@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Search, Filter, Plus, X, MapPin, BookOpen, User,
   Calendar, Phone, Edit, LogOut, ChevronLeft, ChevronRight,
-  CheckCircle, GraduationCap, Landmark, IndianRupee
+  CheckCircle, GraduationCap, Landmark, IndianRupee, Banknote, CreditCard
 } from 'lucide-react';
 
 const STUDENT_TYPES = {
@@ -61,6 +61,8 @@ const generatePaymentRecords = (admissionDate, leaveDate, seed) => {
   let endYear = end.getFullYear();
   let paymentId = 1;
 
+  const paymentMethods = ["Online", "Cash"];
+
   for (let y = currentYear; y <= endYear; y++) {
     const timesPaidThisYear = Math.floor(seededRand(seed + y) * 4) + 1; 
     for (let i = 0; i < timesPaidThisYear; i++) {
@@ -71,12 +73,14 @@ const generatePaymentRecords = (admissionDate, leaveDate, seed) => {
       if (pDate >= start && pDate <= end) {
         const amounts = [1500, 2000, 3000, 5000, 7500];
         const amt = amounts[Math.floor(seededRand(seed + pDate.getTime()) * amounts.length)];
+        const method = paymentMethods[Math.floor(seededRand(seed + pDate.getTime() + 1) * paymentMethods.length)];
         records.push({
           id: `pay-${y}-${paymentId++}`,
           date: pDate.toISOString().split('T')[0],
           year: y,
           monthIndex: pDate.getMonth(),
-          amount: amt
+          amount: amt,
+          method: method
         });
       }
     }
@@ -88,24 +92,24 @@ const generatePaymentRecords = (admissionDate, leaveDate, seed) => {
 
 const VILLAGES = ["રાજકોટ","જૂનાગઢ","જામનગર","ભાવનગર","પોરબંદર","અમરેલી","ગીર સોમનાથ","કચ્છ"];
 const TYPE_KEYS = Object.keys(STUDENT_TYPES);
+const STANDARDS = ["8", "9", "10", "11 Arts", "11 Science", "12 Arts", "12 Science"];
+const COLLEGE_YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Masters"];
 
 const generateMockStudents = () => {
   return Array.from({ length: 45 }, (_, i) => {
     const n = i + 1;
-    const isOld      = n % 5 === 0;
     const adYear     = 2020 + Math.floor(seededRand(n * 31) * 5);
     const adMonth    = Math.floor(seededRand(n * 37) * 12) + 1;
     const admDate    = `${adYear}-${String(adMonth).padStart(2,'0')}-15`;
     const isSTStudent = n % 4 === 0;
     const sType      = TYPE_KEYS[Math.floor(seededRand(n * 41) * 3)];
 
-    let leaveDate = null;
-    if (isOld) {
-      const ly = adYear + Math.floor(seededRand(n * 53) * 3) + 1;
-      leaveDate = `${ly}-04-30`;
-    }
+    let standard = "";
+    let collegeYear = "";
+    if (sType === "school") standard = STANDARDS[Math.floor(seededRand(n * 71) * STANDARDS.length)];
+    if (sType === "college") collegeYear = COLLEGE_YEARS[Math.floor(seededRand(n * 73) * COLLEGE_YEARS.length)];
 
-    const payments = generatePaymentRecords(admDate, leaveDate, n * 100);
+    const payments = generatePaymentRecords(admDate, null, n * 100);
 
     return {
       id:           `STU${String(n).padStart(3,'0')}`,
@@ -113,15 +117,17 @@ const generateMockStudents = () => {
       fullNameGu:   `વિદ્યાર્થી નામ ${n}`,
       fullNameEn:   `Student Name ${n}`,
       studentType:  sType,
+      standard,
+      collegeYear,
       villageGu:    VILLAGES[Math.floor(seededRand(n * 59) * VILLAGES.length)],
       roomNumber:   `${Math.floor(seededRand(n * 61) * 10) + 1}`,
-      status:       isOld ? "old" : "current",
       admissionDate: admDate,
-      leaveDate,
       isSTStudent,
       payments,
       parentNameGu: `વાલીનું નામ ${n}`,
       contactNumber:`+91 98${String(Math.floor(seededRand(n * 67) * 100000000)).padStart(8,'0')}`,
+      studentContactNumber: n % 3 !== 0 ? `+91 97${String(Math.floor(seededRand(n * 69) * 100000000)).padStart(8,'0')}` : "", 
+      password: "first", // Default password
     };
   });
 };
@@ -188,31 +194,40 @@ function FeeRecordsPanel({ student, onAddPayment }) {
 
           {/* Payments List */}
           <div className="space-y-2.5">
-            {filteredPayments.map((payment) => (
-              <div key={payment.id}
-                className="flex items-center justify-between bg-white dark:bg-slate-900/50 rounded-xl px-4 py-3.5 border border-slate-100 dark:border-slate-800 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+            {filteredPayments.map((payment) => {
+              const isCash = payment.method?.toLowerCase() === 'cash';
+              
+              return (
+                <div key={payment.id}
+                  className="flex items-center justify-between bg-white dark:bg-slate-900/50 rounded-xl px-4 py-3.5 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group"
+                >
+                  {isCash && <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>}
+                  
+                  <div className="flex items-center gap-3 pl-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCash ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-500' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-500'}`}>
+                      {isCash ? <Banknote className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        {GUJARATI_MONTHS[payment.monthIndex]} {payment.year}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
+                        તારીખ: {formatDate(payment.date)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                      {GUJARATI_MONTHS[payment.monthIndex]} {payment.year}
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
-                      તારીખ: {formatDate(payment.date)}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="text-right">
-                  <p className="text-base font-black text-slate-900 dark:text-white">
-                    ₹{payment.amount.toLocaleString('en-IN')}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-base font-black text-slate-900 dark:text-white">
+                      ₹{payment.amount.toLocaleString('en-IN')}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase mt-1 ${isCash ? 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400 border border-teal-200 dark:border-teal-500/30' : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30'}`}>
+                      {isCash ? 'રોકડ (Cash)' : `ઓનલાઈન (${payment.method || 'UPI'})`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       ) : (
@@ -228,7 +243,6 @@ function FeeRecordsPanel({ student, onAddPayment }) {
 export default function StudentDirectory() {
   const [students, setStudents]               = useState(INITIAL_STUDENTS);
   const [searchQuery, setSearchQuery]         = useState("");
-  const [statusFilter, setStatusFilter]       = useState("current");
   const [roomFilter, setRoomFilter]           = useState("all");
   const [typeFilter, setTypeFilter]           = useState("all");
   const [currentPage, setCurrentPage]         = useState(1);
@@ -237,6 +251,7 @@ export default function StudentDirectory() {
   // Modals state
   const [isFormOpen, setIsFormOpen]                 = useState(false);
   const [editingStudent, setEditingStudent]         = useState(null);
+  const [formStudentType, setFormStudentType]       = useState("school"); // For dynamic fields in form
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentStudentId, setPaymentStudentId]     = useState(null);
 
@@ -251,11 +266,10 @@ export default function StudentDirectory() {
     const q = searchQuery.toLowerCase();
     return students.filter(s =>
       (s.fullNameGu.includes(searchQuery) || s.fullNameEn.toLowerCase().includes(q) || s.villageGu.includes(searchQuery)) &&
-      (statusFilter === "all" || s.status === statusFilter) &&
       (roomFilter   === "all" || s.roomNumber === roomFilter) &&
       (typeFilter   === "all" || s.studentType === typeFilter)
     );
-  }, [students, searchQuery, statusFilter, roomFilter, typeFilter]);
+  }, [students, searchQuery, roomFilter, typeFilter]);
 
   const totalPages        = Math.ceil(filteredStudents.length / STUDENTS_PER_PAGE) || 1;
   const paginatedStudents = filteredStudents.slice(
@@ -266,6 +280,10 @@ export default function StudentDirectory() {
   // 1. Add / Update Student Profile
   const handleSaveStudent = (formData) => {
     const isNewST = formData.isSTStudent === "true";
+
+    // Clean up unnecessary fields based on student type
+    if (formData.studentType !== 'school') delete formData.standard;
+    if (formData.studentType !== 'college') delete formData.collegeYear;
 
     if (editingStudent) {
       setStudents(prev => prev.map(s =>
@@ -282,7 +300,9 @@ export default function StudentDirectory() {
       setStudents(prev => [{
         ...formData, id: newId,
         photoUrl: `/api/placeholder/150/150?text=${(formData.fullNameEn||'S').split(' ')[0]}`,
-        isSTStudent: isNewST, payments: [] 
+        isSTStudent: isNewST, 
+        payments: [],
+        password: "first" // Add default password for new students
       }, ...prev]);
     }
     setIsFormOpen(false);
@@ -291,6 +311,7 @@ export default function StudentDirectory() {
 
   const openForm = (student = null) => {
     setEditingStudent(student);
+    setFormStudentType(student?.studentType || "school");
     setIsFormOpen(true);
   };
 
@@ -305,8 +326,9 @@ export default function StudentDirectory() {
     const data = new FormData(e.target);
     const amount = parseInt(data.get('amount'), 10);
     const dateStr = data.get('date');
+    const method = data.get('method');
 
-    if (!amount || !dateStr) return;
+    if (!amount || !dateStr || !method) return;
 
     const d = new Date(dateStr);
     const newPayment = {
@@ -314,7 +336,8 @@ export default function StudentDirectory() {
       date: dateStr,
       year: d.getFullYear(),
       monthIndex: d.getMonth(),
-      amount: amount
+      amount: amount,
+      method: method
     };
 
     setStudents(prev => prev.map(s => {
@@ -357,18 +380,6 @@ export default function StudentDirectory() {
             <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
             નવો વિદ્યાર્થી ઉમેરો
           </button>
-        </div>
-
-        {/* Status Tabs */}
-        <div className="flex items-center gap-2 mb-6 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-fit shadow-sm">
-          {[{ id:"current", label:"હાલના" }, { id:"old", label:"ભૂતપૂર્વ" }, { id:"all", label:"બધા" }].map(tab => (
-            <button key={tab.id} onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                statusFilter === tab.id
-                  ? "bg-[#FFAF03]/10 dark:bg-[#FFAF03]/20 text-[#FFAF03] shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}>{tab.label}</button>
-          ))}
         </div>
 
         {/* Filters */}
@@ -421,11 +432,6 @@ export default function StudentDirectory() {
                   className="group bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden relative"
                 >
                   <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFAF03]/5 rounded-full blur-xl group-hover:bg-[#FFAF03]/10 transition-colors pointer-events-none" />
-                  {student.status === "old" && (
-                    <div className="absolute top-3 right-3 px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold rounded-lg uppercase tracking-widest border border-slate-200 dark:border-slate-700">
-                      ભૂતપૂર્વ
-                    </div>
-                  )}
                   <div className="flex items-center gap-4 mb-4 relative z-10">
                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-800 shrink-0">
                       <img src={student.photoUrl} alt={student.fullNameEn} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -441,7 +447,11 @@ export default function StudentDirectory() {
                   <div className="space-y-2.5 mt-5">
                     <div className={`flex items-center text-sm ${tc.bg} p-2 rounded-xl border ${tc.border}`}>
                       <StudentTypeIcon type={student.studentType} className={`w-4 h-4 ${tc.iconColor} mr-2.5 shrink-0`} />
-                      <span className={`font-semibold ${tc.text}`}>{info?.labelShort}</span>
+                      <span className={`font-semibold ${tc.text}`}>
+                        {info?.labelShort}
+                        {student.studentType === 'school' && student.standard ? ` - ધોરણ ${student.standard}` : ''}
+                        {student.studentType === 'college' && student.collegeYear ? ` - ${student.collegeYear}` : ''}
+                      </span>
                     </div>
                     <div className="flex items-center text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl">
                       <MapPin className="w-4 h-4 text-[#FFAF03] mr-2.5 shrink-0" />
@@ -514,13 +524,6 @@ export default function StudentDirectory() {
                 </div>
                 <div className="text-center sm:text-left flex-grow">
                   <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 flex-wrap">
-                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${
-                      selectedStudent.status === 'current'
-                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {selectedStudent.status === 'current' ? 'હાલનો' : 'ભૂતપૂર્વ'}
-                    </span>
                     <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                       {selectedStudent.id}
                     </span>
@@ -549,6 +552,8 @@ export default function StudentDirectory() {
                       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">પ્રકાર</p>
                       <p className="text-base font-bold text-slate-900 dark:text-white">
                         {STUDENT_TYPES[selectedStudent.studentType]?.label}
+                        {selectedStudent.studentType === 'school' && selectedStudent.standard ? ` (ધોરણ ${selectedStudent.standard})` : ''}
+                        {selectedStudent.studentType === 'college' && selectedStudent.collegeYear ? ` (${selectedStudent.collegeYear})` : ''}
                       </p>
                     </div>
                   </div>
@@ -564,9 +569,8 @@ export default function StudentDirectory() {
                     <div>
                       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">રોકાણ</p>
                       <p className="text-sm font-bold text-slate-900 dark:text-white">પ્રવેશ: {formatDate(selectedStudent.admissionDate)}</p>
-                      {selectedStudent.status === 'old' && <p className="text-sm font-bold text-slate-900 dark:text-white">વિદાય: {formatDate(selectedStudent.leaveDate)}</p>}
                       <p className="text-sm font-black text-[#FFAF03] mt-1.5 bg-[#FFAF03]/10 px-2 py-1 rounded inline-block">
-                        {calculateDuration(selectedStudent.admissionDate, selectedStudent.leaveDate)}
+                        {calculateDuration(selectedStudent.admissionDate)}
                       </p>
                     </div>
                   </div>
@@ -595,22 +599,31 @@ export default function StudentDirectory() {
               </div>
 
               <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">વાલીની માહિતી</h3>
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-6 justify-between items-start sm:items-center">
-                  <div className="flex items-center gap-4">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">સંપર્ક માહિતી</h3>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-6 justify-start items-start sm:items-center flex-wrap">
+                  <div className="flex items-center gap-4 pr-4 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-slate-700 pb-4 sm:pb-0">
                     <div className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm"><User className="w-6 h-6 text-slate-400" /></div>
                     <div>
                       <p className="text-xs font-bold text-slate-500 uppercase">વાલીનું નામ</p>
                       <p className="text-base font-bold text-slate-900 dark:text-white">{selectedStudent.parentNameGu}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 pr-4 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-slate-700 pb-4 sm:pb-0">
                     <div className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm"><Phone className="w-6 h-6 text-slate-400" /></div>
                     <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">સંપર્ક</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase">વાલીનો સંપર્ક</p>
                       <p className="text-base font-bold text-slate-900 dark:text-white">{selectedStudent.contactNumber}</p>
                     </div>
                   </div>
+                  {selectedStudent.studentContactNumber && (
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm"><Phone className="w-6 h-6 text-[#FFAF03]" /></div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase">વિદ્યાર્થીનો સંપર્ક</p>
+                        <p className="text-base font-bold text-slate-900 dark:text-white">{selectedStudent.studentContactNumber}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -672,19 +685,29 @@ export default function StudentDirectory() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">પ્રકાર *</label>
-                      <select name="studentType" defaultValue={editingStudent?.studentType || "school"}
+                      <select name="studentType" value={formStudentType} onChange={(e) => setFormStudentType(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none">
                         {Object.entries(STUDENT_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">સ્ટેટસ *</label>
-                      <select name="status" defaultValue={editingStudent?.status || "current"}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none">
-                        <option value="current">હાલનો</option>
-                        <option value="old">ભૂતપૂર્વ</option>
-                      </select>
-                    </div>
+                    
+                    {/* Conditionally rendered Standard / College Year Input */}
+                    {formStudentType === 'school' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">ધોરણ (Standard) *</label>
+                        <input name="standard" defaultValue={editingStudent?.standard} required placeholder="દા.ત. 10, 12 Science"
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
+                      </div>
+                    )}
+
+                    {formStudentType === 'college' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">કોલેજનું વર્ષ (Year) *</label>
+                        <input name="collegeYear" defaultValue={editingStudent?.collegeYear} required placeholder="દા.ત. 1st Year, SY"
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">રૂમ *</label>
                       <input name="roomNumber" defaultValue={editingStudent?.roomNumber} required
@@ -697,32 +720,34 @@ export default function StudentDirectory() {
                         required
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">વિદાય તારીખ (જો ખ્યાલ હોય)</label>
-                      <input type="date" name="leaveDate"
-                        defaultValue={editingStudent?.leaveDate}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
-                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-[#FFAF03] uppercase border-b border-[#FFAF03]/20 pb-2">વાલીની માહિતી</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <h3 className="text-sm font-bold text-[#FFAF03] uppercase border-b border-[#FFAF03]/20 pb-2">સંપર્ક માહિતી</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">વાલીનું નામ *</label>
                       <input name="parentNameGu" defaultValue={editingStudent?.parentNameGu} required
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">સંપર્ક *</label>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">વાલીનો સંપર્ક *</label>
                       <input name="contactNumber" defaultValue={editingStudent?.contactNumber} required
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">વિદ્યાર્થીનો સંપર્ક (જો હોય તો)</label>
+                      <input name="studentContactNumber" defaultValue={editingStudent?.studentContactNumber} placeholder="+91..."
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#FFAF03] outline-none" />
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-6 sticky bottom-0 bg-white dark:bg-[#111] border-t border-slate-100 dark:border-slate-800 flex justify-end gap-4 pb-2">
+                  <div className="flex-1 max-w-[200px] flex items-center">
+                     <p className="text-[10px] sm:text-xs text-slate-400">નવા વિદ્યાર્થી માટે ડિફોલ્ટ પાસવર્ડ <strong className="text-[#FFAF03]">first</strong> રહેશે.</p>
+                  </div>
                   <button type="button" onClick={() => setIsFormOpen(false)}
                     className="px-6 py-3 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
                     રદ
@@ -763,6 +788,15 @@ export default function StudentDirectory() {
                   <input type="number" name="amount" required min="1" placeholder="ઉદા. 2000"
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#FFAF03] outline-none text-lg font-bold" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 ml-1">પેમેન્ટની રીત *</label>
+                <select name="method" required
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-[#FFAF03] outline-none font-medium">
+                  <option value="Cash">રોકડ (Cash)</option>
+                  <option value="Online">ઓનલાઈન (Online)</option>
+                </select>
               </div>
               
               <div>
